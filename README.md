@@ -1,2 +1,2 @@
 # DataViz
-For Course CAPP 30239 at UChicago.
+Repository For course CAPP 30239 at UChicago.
