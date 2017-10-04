@@ -1,2 +1,3 @@
-.sas7bdat
-.csv
+*.sas7bdat
+*.csv
+*.Rhistory
