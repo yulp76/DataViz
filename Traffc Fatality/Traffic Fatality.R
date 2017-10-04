@@ -37,3 +37,25 @@ acc <- mutate(acc, STATE = str_pad(STATE, 2, "left", "0"), COUNTY = str_pad(COUN
 acc <- dplyr::rename(acc, StateFIPSCode = STATE, CountyFIPSCode = COUNTY)
 acc <- left_join(acc, fips, by = c("StateFIPSCode", "CountyFIPSCode"))
 
+#Exploratory Analysis - No Pipe
+by_year_state <- group_by(acc, YEAR, StateName)
+agg <- summarize(by_year_state, TOTAL = sum(FATALS, na.rm = TRUE))
+agg_wide <- spread(agg, YEAR, TOTAL)
+agg_wide <- rename(agg_wide, Year2014 = "2014", Year2015 = "2015")
+agg_wide <- mutate(agg_wide, Diff_Percent = (Year2015-Year2014)/Year2014)
+agg_wide <- arrange(agg_wide, desc(Diff_Percent))
+agg <- filter(agg_wide, Diff_Percent > 0.15, is.na(StateName) == FALSE)
+agg <- arrange(agg, order(Diff_Percent))
+glimpse(agg)
+
+#Exploratory Analysis - With Pipe
+agg <- acc %>% 
+  group_by(YEAR, StateName) %>% 
+  summarize(TOTAL = sum(FATALS, na.rm = TRUE)) %>% 
+  spread(YEAR, TOTAL) %>% 
+  rename(Year2014 = "2014", Year2015 = "2015") %>% 
+  mutate(Diff_Percent = (Year2015-Year2014)/Year2014) %>% 
+  arrange(desc(Diff_Percent)) %>% 
+  filter(Diff_Percent > 0.15, is.na(StateName) == FALSE) %>% 
+  arrange(order(Diff_Percent))
+glimpse(agg)
