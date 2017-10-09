@@ -36,18 +36,18 @@ df$threshold <- cut(df$Pct_GNI, breaks = c(0, 0.7, 100),
 
 ggplot(data=df, aes(x=GNI, y=Million_USD)) +
   geom_point(aes(color=threshold, size=Pct_GNI), alpha=0.35)+
-  geom_text(size=2.5, hjust=0.5, vjust=0.1, angle=20, aes(label=Country))+
+  geom_text(size=2.5, hjust=0.5, vjust=0.5, angle=20, aes(label=Country))+
   geom_line(stat="smooth", method="loess", color="maroon", alpha=0.8)+
   scale_x_log10()+
   scale_y_log10()+
   scale_size_continuous(range = c(10, 20))+
-  theme(legend.position = "bottom",
+  theme(legend.position ="bottom",
         axis.text=element_text(color="maroon"),
         axis.title=element_text(size=10,face="bold"),
         title=element_text(size=12, face="bold"))+
-  labs(x="GNI in Brillion USD", 
+  labs(x="GNI in Billion USD", 
        y="ODA in Million USD",
-       title="Graph 1. What is the Relationship between Foreign Aid and National Income",
+       title="Graph 1. What is the Relationship between Foreign Aid and National Income?",
        subtitle="Net Official Development Assistance (ODA) and Gross National Income (GNI) for Donor Countries in 2015\n*Regression Line Model: Local Polynomial Regression",
        color="Compared to 0.7% ODA/GNI Target",
        size="ODA/GNI in %")
