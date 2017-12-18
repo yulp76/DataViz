@@ -1,2 +1,1 @@
-# **Data Visualization for Public Policy**  
-Repository for course CAPP 30239 at UChicago.  
+# ggplot2 Project for CAPP 30239 Data Visualization for Policy Analysis @ UChicago
