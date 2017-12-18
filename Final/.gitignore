@@ -1,0 +1,8 @@
+*.csv
+*.xls
+*.xlsx
+*.R
+*.Rmd
+*.gif
+.Rhistory
+ne_50m_admin_0_countries/
