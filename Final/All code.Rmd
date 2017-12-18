@@ -1,0 +1,388 @@
+---
+title: "Portfolio"
+author: "Tommy Yu"
+date: "December 2017"
+output:
+  html_document:
+    df_print: paged
+---
+
+```{R echo=FALSE, warning=FALSE, message=FALSE}
+library(tidyverse)
+library(ggplot2)
+library(ggrepel)
+library(scales)
+library(rworldmap)
+library(stringr)
+library(extrafont)
+library(RColorBrewer)
+library(treemapify)
+library(lubridate)
+library(rgdal)
+library(rgeos)
+library(maptools)
+library(broom)
+library(dplyr)
+library(ggmap)
+library(gganimate)
+library(RColorBrewer)
+library(PBSmapping)
+loadfonts()
+setwd("C:/Users/yulp7/Desktop/Final")
+```
+
+```{R warning=FALSE, message=FALSE}
+
+my_theme <- theme(plot.title=element_text(color="#02818a", vjust=18, size=36, family="Stencil"),
+                  plot.subtitle = element_text(color="#1a1a1a", vjust=10, size=24, family="Calisto MT"),
+                  plot.background = element_rect(fill="#f7fcfd"),
+                  axis.title = element_text(color="#02818a", size=24, family="Calisto MT"),
+                  axis.title.y = element_text(margin = margin(r = 18)),
+                  axis.title.x = element_text(margin = margin(t = 18)),
+                  axis.text = element_text(color="#1a1a1a", size=18, family="Calisto MT"),
+                  legend.title = element_text(color="#02818a", size=24, family="Calisto MT"),
+                  legend.text = element_text(color="#1a1a1a", size=18, family="Calisto MT"),
+                  legend.box.background = element_rect(color="#02818a"),
+                  strip.text = element_text(color="white", size=18, family="Calisto MT"),
+                  strip.background = element_rect(fill="#02818a"),
+                  panel.grid.major = element_line(color="#02818a", size=0.5),
+                  panel.grid.minor = element_line(color="#02818a", linetype = "dotted", size=0.25),
+                  panel.background = element_rect(fill="white"),
+                  panel.border = element_rect(color="white",fill=NA),
+                  plot.caption = element_text(color="#1a1a1a",size=18, vjust=-15, family="Calisto MT"),
+                  plot.margin = margin(3, 1, 3, 2, "cm"))
+
+theme_map <- theme(axis.text = element_blank(),
+                   axis.ticks = element_blank(),
+                   panel.grid.major = element_blank(),
+                   panel.grid.minor = element_blank()) 
+
+qua <- "Set2"
+seq_up <- "GnBu"
+seq_down <- "RdPu"
+div <- "PRGn"
+
+```
+
+
+## Graph 1
+
+```{R echo=FALSE, warning=FALSE, message=FALSE}
+breakdown <- read_csv("Graph1_breakdown.csv")
+breakdown <- breakdown %>% 
+  filter(`Amount type` == 'Constant Prices') %>% 
+  select(Donor, `Aid type`, Year, Value)
+
+by_donor <- breakdown %>% 
+  filter(Donor %in% c('DAC Countries, Total','Multilaterals, Total','Non-DAC Countries, Total'),
+         `Aid type`=='I. OFFICIAL DEVELOPMENT ASSISTANCE (I.A + I.B)')
+by_donor$Donor <- factor(by_donor$Donor, levels=c('Multilaterals, Total','Non-DAC Countries, Total','DAC Countries, Total'))
+
+DAC_multi <- breakdown %>%
+  filter(Donor =='DAC Countries, Total', `Aid type`=='I.B. Multilateral Official Development Assistance (capital subscriptions are included with grants)')
+
+by_donor$Value = by_donor$Value/1000
+DAC_multi$Value = DAC_multi$Value/1000
+```
+
+```{R warning=FALSE,fig.height=12,fig.width=20, message=FALSE}
+p <- ggplot() +
+  geom_area(data=by_donor, aes(x= Year, y = Value, fill = Donor), position = "stack") +
+  geom_line(data=DAC_multi, aes(x = Year, y = Value), size=1, color="white", linetype="longdash") +
+  scale_fill_manual(values=brewer.pal(3, qua),
+                    labels=c("Multilaterals", "Non-DAC Countries", "DAC Countries")) +
+  scale_y_continuous(expand = c(0, 0), labels = scales::comma) +
+  scale_x_continuous(expand = c(0, 0), breaks = (seq(1960,2015,5)), labels=(seq(1960,2015,5))) +
+  annotate("text", x = 1995, y = 40, label = "Dashed line: DAC countries' aid that went\nthrough multilateral organizations.", size=6, family="Calisto MT", color="white", fontface="italic") +
+  labs(title = "Foreign Aid has Increased Greatly since 1960",
+       subtitle = "Net Official Development Assistance in 2015 more than quadrupled (in constant prices) in\nthe preceding 55 years.Members of OECD's Development Assistance Committee (DAC) provide\nthe vast majority of official aid, of which they only channel less than a third through multilateral\norganizations. It hints at the possibility that more political gain is achieved through bilateral aid.",
+       caption = "Data Source: OECD International Development Statistics",
+       x = "",
+       y = "Net ODA (Constant 2015 USD Billion)") +
+  my_theme
+ggsave("1.pdf", p, width=40, height=24, device="pdf", units = "cm")
+```
+
+> There has been a general trend of increase in Official Development Assistance (ODA) since 1960 (based on constant 2015 dollars), despite a few occasional drops. In fact, Net ODA in 2015 more than quadrupled compared to that in 1960. Members of OECD's Development Assistance Committee (DAC) provide the vast majority of official aid. Although they send most of their aid directly to other countries through bilateral agreements, they normally channel the remaining portion (less than 1/3) through multilateral organizations.
+
+## Graph 2
+```{R echo=FALSE,warning=FALSE, message=FALSE}
+GNI <- read_csv("Graph2_GNI.csv")
+color <- brewer.pal(5, div)
+```
+
+```{R warning=FALSE, fig.height=12, fig.width=15, message=FALSE}
+p <- ggplot(data=GNI, aes(x = GNI, y = ODA, color=`ODA/GNI`)) +
+  geom_point(size=18, alpha=0.4)+
+  geom_point(shape = 1,size = 18,colour = "black", alpha=0.5)+
+  scale_y_log10(breaks = scales::trans_breaks("log10", function(x) 10^x),
+                labels = scales::trans_format("log10", scales::math_format(10^.x)),
+                limits = c(30, 40000))+
+  scale_x_log10(breaks = scales::trans_breaks("log10", function(x) 10^x),
+                labels = scales::trans_format("log10", scales::math_format(10^.x)))+
+  annotation_logticks(sides = "trbl")+
+  scale_colour_gradient2(low = head(color, n=1), mid = color[3],
+                         high = tail(color, n=1), midpoint = 0.7)+
+  geom_text_repel(size=6, color="#1a1a1a", family="Calisto MT", aes(label=Country))+
+  geom_line(stat="smooth", method="loess", color="maroon", size=1.5, alpha=0.6)+
+  theme_bw()+
+  labs(title = "Richer Countries Spend More on Foreign Aid",
+       subtitle = "United States is the largest donor among DAC countries (and in the world),\nhowever, its aid level is still much lower than the universal target of 0.7%\nof Gross National Income (GNI) - one that most countries fail to achieve.",
+       caption = "Data Source: OECD International Development Statistics",
+       x = "GNI (USD Billion, Log Base 10)",
+       y = "Amount of Net ODA in 2015 (USD Million, Log Base 10)",
+       color = "ODA/GNI\nMidpoint=0.7%") +
+  my_theme +
+  theme(legend.position = "right")
+ggsave("2.pdf", p, width=40, height=30, device="pdf", units = "cm")
+```
+> There is a strong correlation between the GNI and 2015 Net ODA among DAC countries; in other words, the larger the economy, the more likely it is going to spend on foreign aid. United States is the dominant leader, spending more than 3 times on foreign aid than the runner-up, however, due to its massive GNI, its aid level is still much lower than the universal target of 0.7% of GNI - one that most countries fail to achieve. Sweden has the highest ODA/GNI ratio.
+
+## Graph 3
+```{R echo=FALSE, warning=FALSE, message=FALSE}
+us <- read_csv("Graph3_US.csv")
+us <- us %>% 
+  mutate(fiscal_year = as.integer(fiscal_year)) %>% 
+  filter(transaction_type_name == "Obligations", fiscal_year <= 2015) %>%
+  group_by(fiscal_year, assistance_category_name) %>% 
+  summarize(Amount = sum(constant_amount/1000000000))
+```
+
+```{R warning=FALSE, fig.height=12, fig.width=15, message=FALSE}
+p <- ggplot()+
+  geom_rect(data=data.frame(xmin=decimal_date(as.Date(c("1955-11-01"))), xmax=decimal_date(as.Date(c("1975-04-30"))), ymin=-Inf, ymax=68),
+            aes(xmin=xmin,xmax=xmax,ymin=ymin,ymax=ymax), fill="grey",alpha=0.2) +
+  geom_rect(data=data.frame(xmin=decimal_date(as.Date(c("1947-04-16"))), xmax=decimal_date(as.Date(c("1991-12-26"))), ymin=-Inf, ymax=73),
+            aes(xmin=xmin,xmax=xmax,ymin=ymin,ymax=ymax), fill="grey",alpha=0.2) +
+  geom_segment(aes(x=decimal_date(as.Date(c("1955-11-01"))), xend=decimal_date(as.Date(c("1975-04-30"))), y=68, yend=68), color="black", size=1, linetype="dashed")+
+  geom_segment(aes(x=decimal_date(as.Date(c("1947-04-16"))), xend=decimal_date(as.Date(c("1991-12-26"))), y=73, yend=73), color="black", size=1, linetype="dashed")+
+  annotate("text", x = 1965.5, y = 70, label = "Vietnam War", size=6, family="Calisto MT", color="red", fontface="italic") +
+  annotate("text", x = 1969.5, y = 75, label = "Cold War", size=6, family="Calisto MT", color="red", fontface="italic") +
+  annotate("text", x = 2010, y = 40, label = "Economic", size=8, family="Calisto MT", color="#66c2a5", fontface="bold") +
+  annotate("text", x = 2010, y = 23, label = "Military", size=8, family="Calisto MT", color="#8da0cb", fontface="bold") +
+  geom_line(data=us, aes(x=fiscal_year, y=Amount, group=assistance_category_name, color=assistance_category_name), size=1.5, alpha=1)+
+  guides(color=FALSE)+
+  scale_y_continuous(limits=c(0, 79), expand=c(0,0), labels = scales::comma) +
+  scale_x_continuous(expand = c(0, 0), breaks = (seq(1940,2015,5)), labels=(seq(1940,2015,5))) +
+  scale_color_manual(values=c("#66c2a5", "#8da0cb"))+
+  labs(title="US Once Spent A Whole Lot More on Foreign Aid than Today",
+       subtitle="During the post World War II era, US spent over 50% more on economic foreign aid than\nin 2015 based on constant prices. Military aid outweighed economic aid only in 2 periods:\ntowards the beginnings of the Cold War & the end of the Vietnam War.",
+       x="",
+       y="Total Official Aid (Constant 2015 USD Billion)",
+       color="Aid Category",
+       caption = "Data Source: USAID.GOV") +
+  my_theme +
+  theme(legend.position = "top",
+        panel.grid.major = element_line(color="#02818a", linetype = "dotted", size=0.25))
+ggsave("3.pdf", p, width=40, height=24, device="pdf", units = "cm")
+```
+> ODA as defined by OECD does not take into account aid for military purposes. Therefore, it is interesting to look at US foreign aid, which has a clear classification of economic vs. military. Surprisinlgy, during the post World War II era, US spent over 50% more on economic foreign aid than in 2015 based on constant prices. Military aid outweighed economic aid only in 2 periods: towards the beginnings of the Cold War & the end of the Vietnam War. There is a strong correlation between economic aid and military aid over the past 30 years, until most recently when military aid started to drop.
+
+## Graph 4
+```{R echo=FALSE, warning=FALSE, message=FALSE}
+ldc <- read_csv("Graph4_ldc.csv")
+ldc$class <- ifelse((ldc$B - ldc$A) < 0, "dec", "inc")
+
+left <- paste(ldc$Country, round(ldc$A), "%", sep = " ")
+right <- paste((ldc$B), "%", ldc$Country, sep = " ")
+```
+
+```{R warning=FALSE, fig.height=25, fig.width=15, message=FALSE}
+p <- ggplot() + 
+  geom_segment(data=ldc, aes(x=1, xend=2, y=A, yend=B, color=class), size=1, alpha=1, show.legend=F) + 
+  geom_text_repel(data=ldc, label=left, y=ldc$A, x=1, size=6, nudge_x = -0.2, family="Calisto MT")+
+  geom_text_repel(data=ldc, label=right, y=ldc$B, x=2, size=6, nudge_x = 0.2, family="Calisto MT")+
+  geom_vline(xintercept=1, linetype="dashed", size=.1) + 
+  geom_vline(xintercept=2, linetype="dashed", size=.1) +
+  scale_color_manual(labels = c("Up", "Down"), 
+                     values = c("inc"="#7fbf7b", "dec"="#af8dc3")) +
+  xlim(.6, 2.4) + ylim(20,85)+
+  annotate("text", label="2004-2005", x=1, y=85, hjust=1.1, size=12, fontface="bold", family="Calisto MT") +
+  annotate("text", label="2014-2015", x=2, y=85, hjust=-0.1, size=12, fontface="bold", family="Calisto MT") +
+  labs(title="A Larger Portion of Aid is Directed to Least Developed Countries",
+       subtitle="During 2014-2015, DAC countries channeled 10% more of their official aid to the least developed\ncountries comparing to a decade ago. Most DAC countries spend proportionately more on the\npoorest countries. Japan leads the increase (>30%), while Portugal leads the decrease (>40%).",
+       x="",
+       y="Propotion of Aid to Least Developed Countries in the 2-year period (%)",
+       caption = "Data Source: OECD International Development Statistics") +
+  my_theme+
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        axis.ticks = element_blank(),
+        axis.text.x = element_blank(),
+        panel.border = element_blank(),
+        plot.margin = unit(c(3,2,3,2), "cm"))
+ggsave("4.pdf", p, width=40, height=65, device="pdf", units = "cm")
+```
+> During 2014-2015, DAC countries channeled 10% more of their official aid to the least developed countries comparing to a decade ago. Most DAC countries spend proportionately more on the poorest countries. Japan leads the increase (>30%), while Portugal leads the decrease (>40%). Iceland and Ireland appear to have been directing the most portion of their aid to least developed countries (>60%).
+
+## Graph 5
+```{R echo=FALSE, warning=FALSE, message=FALSE}
+sector <- read_csv("Graph5_sector.csv")
+```
+
+```{R warning=FALSE, fig.height=20, fig.width=15, message=FALSE}
+p <- sector %>% 
+  ggplot(aes(area=Value, subgroup=`Level 1`, fill=`Level 1`, label =`Level 2`))+
+  geom_treemap(color="white", size=2, linetype = "dashed")+
+  geom_treemap_subgroup_border(color="#02818a", size=2) +
+  geom_treemap_subgroup_text(place="bottomright", family="Calisto MT", grow = T, color = "White", fontface="bold", alpha=1) +
+  geom_treemap_text(color = "black", place = "topleft", family="Calisto MT", reflow = T, grow= F)+
+  scale_fill_manual(values = brewer.pal(8, qua)) +
+  scale_x_continuous(expand = c(0, 0)) +
+  scale_y_continuous(expand = c(0, 0)) +
+    labs(title="Most Aid Serves Social and Economic Infrastructure & Services",
+       subtitle="Social Infrastructure & Services is the leading sector classification in terms of how foreign aid\nwas allocated in 2015, followed by its economic counterpart. Emergency Response,\nTransport & Storage, and Energy are the top specified purposes.",
+       caption = "Data Source: OECD International Development Statistics") +
+  my_theme+
+  theme(legend.position = "none",
+        panel.border = element_rect(color="#02818a", size=2, fill=NA),
+        plot.title=element_text(vjust=0),
+        plot.subtitle=element_text(vjust=0),
+        plot.margin = margin(3, 2, 3, 2, "cm"))
+ggsave("5.pdf", p, width=40, height=60, device="pdf", units = "cm")
+```
+> Social Infrastructure & Services is the leading sector classification in terms of how foreign aid was allocated in 2015, followed by its economic counterpart. Emergency Response, Transport & Storage, and Energy are the top specified purposes. Debt relief only accounts for a tiny portion of ODA.
+
+## Graph 6
+```{R echo=FALSE, warning=FALSE, message=FALSE}
+multi <- read_csv("Graph6_multi.csv")
+multi <- multi %>% gather(Organization, Amount, 2:6)
+multi$Organization <- factor(multi$Organization, levels=c("EU", "World Bank", "United Nations Agencies", "Regional Development Banks", "Other"))
+```
+
+```{R warning=FALSE, fig.height=12, fig.width=15, message=FALSE}
+p <- multi %>%
+  ggplot() +
+  geom_bar(aes(x=reorder(Country, -GNI), y=Amount, fill=Organization), stat="identity", position="fill")+
+  scale_y_continuous(expand = c(0, 0))+
+  scale_fill_manual(values = brewer.pal(5, qua))+
+  facet_grid(.~Region, scales="free_x", space="free_x")+
+  theme(axis.text.x=element_text(angle = 90, hjust=1, vjust = 0),
+        legend.position = "top")+
+  labs(title="EU is the Major Hub of Multilateral Aid for its Member Countries",
+       subtitle="Over half of the countries which are both EU and DAC members channel most of their\nmultilateral aid through the EU. There is no such counterpart for non-EU donors, who\nmostly rely on the World Bank and UN.",
+       x="DAC Countries (Sorted by Descending GNI)", 
+       y="Proportion of ODA to Multilateral Organizations",
+       fill="Organizations",
+       caption = "Data Source: OECD International Development Statistics")+
+  my_theme
+ggsave("6.pdf", p, width=40, height=30, device="pdf", units = "cm")
+```
+> Over half of the countries which are both EU and DAC members channel most of their multilateral aid through the EU. There is no such counterpart for non-EU donors, who mostly rely on the World Bank and UN. There is no obvious correlation between GNI and the allocation of multilateral aid.
+
+
+```{R warning=FALSE, message=FALSE}
+
+world_map <- readOGR(dsn="ne_50m_admin_0_countries", layer="ne_50m_admin_0_countries")
+world.points <- fortify(world_map, region="ADMIN")
+
+rec <- read.csv("Map_receipt.csv")
+rec <- rec %>%
+  filter(`Aid.type`=="ODA per Capita") %>% 
+  select(Recipient, Year, Value)
+
+top <- read.csv("Map_top_rec.csv")
+top <- top %>% filter(Rank %in% c(1,2,3))
+gni <- read.csv("Map_GNI.csv")
+name_1 <- data.frame(unique(world.points$id)) %>% cbind(mark = 1)
+name_2 <- data.frame(unique(rec$Recipient)) %>% cbind(mark = 2)
+name_3 <- data.frame(unique(gni$Country)) %>% cbind(mark = 3)
+name_12 <- merge(name_1, name_2, by.x="unique.world.points.id.", by.y="unique.rec.Recipient.", all=TRUE)
+name_13 <- merge(name_1, name_3, by.x="unique.world.points.id.", by.y="unique.gni.Country.", all=TRUE)
+# manual check
+
+org=c("Bahamas","Bahamas, The", "Brunei Darussalam","CÃ´te d'Ivoire","Côte d'Ivoire", "China \\(People's Republic of\\)","Chinese Taipei","^Congo",
+      "Congo, Dem. Rep.","Congo, Rep.","Democratic People's Republic of Korea","Former Yugoslav Republic of Macedonia","Macedonia, FYR","Hong Kong, China",
+      "Hong Kong SAR, China","Korea, Rep.","^Korea","Lao People's Democratic Republic","Lao PDR","Macau, China","Macao SAR, China","Micronesia","Micronesia, Fed. Sts.","Serbia","Syrian Arab Republic",
+      "Tanzania","Timor-Leste","Viet Nam","West Bank and Gaza Strip","West Bank and Gaza","Czech Republic", "Slovak Republic","United States", "Egypt, Arab Rep.",
+      "Gambia, The", "Iran, Islamic Rep.", "Kyrgyz Republic", "Russian Federation","St\\.","Yemen, Rep.", "Virgin Islands (U.S.)")
+rpl=c("The Bahamas","The Bahamas","Brunei","Ivory Coast","Ivory Coast","China","Taiwan","Republic of the Congo","Democratic Republic of the Congo",
+      "Republic of the Congo","North Korea","Macedonia","Macedonia", "Hong Kong S.A.R.","Hong Kong S.A.R.","South Korea","South Korea","Laos","Laos","Macao S.A.R",
+      "Macao S.A.R","Federated States of Micronesia","Federated States of Micronesia", "Republic of Serbia","Syria","United Republic of Tanzania","East Timor","Vietnam",
+      "Palestine","Palestine","Czechia","Slovakia","United States of America", "Egypt", "Gambia", "Iran", "Kyrgyzstan","Russia","Saint", "Yemen", "United States Virgin Islands")
+
+for (i in 1:length(org)){
+  rec <- data.frame(lapply(rec, function(x) {gsub(org[i], rpl[i], x)}))
+  top <- data.frame(lapply(top, function(x) {gsub(org[i], rpl[i], x)}))
+  gni <- data.frame(lapply(gni, function(x) {gsub(org[i], rpl[i], x)}))
+}
+
+rec$Recipient = as.character(rec$Recipient)
+rec$Year = as.integer(as.character(rec$Year))
+rec$Value = as.numeric(as.character(rec$Value))
+top$Donor = as.character(top$Donor)
+top$Recipient = as.character(top$Recipient)
+#top$Rank = as.integer(as.character(top$Rank))
+gni$Country = as.character(gni$Country)
+gni$GNI =  as.numeric(as.character(gni$GNI))
+rec$cat <- cut(rec$Value, c(-100,0,10,25,50,100,500,1000,20000), labels=c(-1,1:7))
+gni$cat <- cut(gni$GNI, c(0,1005,3955,12235,99999), labels=c(1:4))
+```
+
+## Map 1
+```{R warning=FALSE, message=FALSE}
+countries <- cbind(world.points, Year=1996)
+oda_history <- left_join(countries, rec, by=c("id"="Recipient", "Year"="Year"))
+for (i in 1997:2015){
+  countries <- cbind(world.points, Year=i)
+  temp <- left_join(countries, rec, by=c("id"="Recipient", "Year"="Year"))
+  oda_history <- rbind(oda_history, temp)
+}
+```
+
+```{R warning=FALSE,fig.height=15,fig.width=20, message=FALSE}
+p <- ggplot(data = oda_history, aes(x = long, y = lat, group = group, fill = cat, frame = Year)) +
+  geom_polygon(color = "#02818a")+
+  coord_map("mercator", xlim = c(-135, 165), ylim = c(-60, 60))+
+  scale_fill_manual(values = c("#ccebc5", brewer.pal(7, seq_down)), na.value="#f7f7f7",
+                    labels = c("Net Donor","0-10","10-25","25-50","50-100","100-500","500-1000",">1000","Developed Countries/No Data")) +
+  labs(title="Past 20 Years: Africa Receives the Most Foreign Aid per Capita, Snapshot",
+       subtitle="African countries on average received the most official assistance per capita, and witnessed the least stable\npattern of relative aid level across themselves, comparing to other continents. China, together with a few\nother developing countries in Southeast Asia, has evolved into a net donor in recent years.",
+       fill="ODA per Capita (Current USD)",
+       x = "",
+       y = "",
+       caption = "Data Source: OECD International Development Statistics") +
+  my_theme+
+  theme_map+
+  theme(legend.position = "right",
+        plot.margin = margin(3, 2, 3, 1, "cm"))
+gganimate(p, "output.gif", ani.width = 1500, ani.height = 1000)
+```
+
+## Map 2
+```{R warning=FALSE, message=FALSE}
+country_centers <- SpatialPointsDataFrame(gCentroid(world_map, byid=TRUE),world_map@data, match.ID=FALSE)
+world.centroids <- as.data.frame(country_centers) %>% 
+  select(ADMIN, x, y)
+top <- top %>% left_join(world.centroids, by=c("Donor"="ADMIN"))
+top <- top %>% left_join(world.centroids, by=c("Recipient"="ADMIN"))
+GNI_by_country <- left_join(world.points, gni, by=c("id"="Country"))
+unique_rec <- data.frame(unique(top$Recipient)) %>% left_join(world.centroids, by=c("unique.top.Recipient."="ADMIN"))
+```
+
+```{R warning=FALSE,fig.height=15,fig.width=20, message=FALSE}
+p <- ggplot() +
+  geom_polygon(data=GNI_by_country, aes(x = long, y = lat, group = group, fill = cat), color = "#02818a") +
+  coord_cartesian(xlim = c(-150, 165), ylim = c(-55, 75), expand=TRUE)+
+  scale_fill_manual(values = c(rev(brewer.pal(8, seq_down))[6:8],"#ccebc5"), na.value="#bdbdbd",
+                    labels = c("Low Income","Lower Middle Income","Upper Middle Income","High Income","No Data")) +
+  geom_curve(data=top, aes(x = x.x, y = y.x, xend = x.y, yend = y.y, color=Rank),size = 0.75, alpha=0.9) +
+  scale_color_manual(values = rev(brewer.pal(9, "PuBu"))[c(1,3,6)], labels=c("First place", "Second place", "Third place"))+
+  geom_point(data=top, aes(x = x.x, y = y.x), stat = "unique", size=2, color="#1b7837")+
+  geom_point(data=top, aes(x = x.y, y = y.y), size=4, color="#762a83", alpha=0.25)+
+  labs(title="East Africa & South Asia are Prioritized by DAC Countries",
+       subtitle="Afghanistan, Ethiopia, Tanzania, Mozambique, and Ukraine appear most frequently on the top-3 list of DAC aid recipients.\nGenerally speaking, the poorest countries are likely to receive the most aid support.",
+       x = "",
+       y = "", 
+       fill = "Economies by\nGNI per Capita (2015)",
+       color = "Top 3 Recipients from\na DAC Donor",
+       caption = "Data Source: OECD International Development Statistics") +
+  my_theme +
+  theme_map +
+  theme(legend.box="vertical",
+        legend.position=c(0,0),
+        legend.justification = c(0,0),
+        plot.margin = margin(3, 1, 3, 1, "cm")
+        )
+ggsave("7.pdf", p, width=60, height=40, device="pdf", units = "cm")
+```
